@@ -44,7 +44,6 @@ def get_relation(my_wx, target_wx):
     if relations[my_wx]["被剋"] == target_wx: return "💀 剋我 (風險)"
 
 def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
-    # 1. 基礎參數
     gan_list = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
     zhi_list = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
     dun_type, ju_num = get_dun_and_ju(jieqi, day_ganzhi)
@@ -56,8 +55,6 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     xun_shou = f"甲{zhi_list[xun_zhi_idx]}"
     xun_yi_map = {"甲子":"戊", "甲戌":"己", "甲申":"庚", "甲午":"辛", "甲辰":"壬", "甲寅":"癸"}
     xun_yi = xun_yi_map[xun_shou]
-    
-    # 2. 值符值使與星門旋轉 (略)
     base_palace = next(p for p, g in di_pan.items() if g == xun_yi)
     star_rot = [1, 8, 3, 4, 9, 2, 7, 6]
     star_base = {1:"天蓬", 8:"天任", 3:"天沖", 4:"天輔", 9:"天英", 2:"天芮", 7:"天柱", 6:"天心", 5:"天禽"}
@@ -66,7 +63,6 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     zs_door = door_base[base_palace if base_palace != 5 else 2]
     hour_gan_palace = next(p for p, g in di_pan.items() if g == t_gan) if t_gan != "甲" else ju_num
     if hour_gan_palace == 5: hour_gan_palace = 2
-    
     star_pos = {}
     rot_idx_start = star_rot.index(base_palace if base_palace != 5 else 2)
     rot_idx_end = star_rot.index(hour_gan_palace)
@@ -99,15 +95,9 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
 
     # --- 🚀 核心升級：馬星、門迫、擊刑演算法 ---
     # 1. 馬星定位 (動能催化劑)
-    ma_xing_map = {
-        "申":"寅", "子":"寅", "辰":"寅",
-        "寅":"申", "午":"申", "戌":"申",
-        "亥":"巳", "卯":"巳", "未":"巳",
-        "巳":"亥", "酉":"亥", "丑":"亥"
-    }
-    ma_zhi = ma_xing_map[t_zhi]
+    ma_xing_map = {"申":"寅", "子":"寅", "辰":"寅", "寅":"申", "午":"申", "戌":"申", "亥":"巳", "卯":"巳", "未":"巳", "巳":"亥", "酉":"亥", "丑":"亥"}
     zhi_palace_map = {"子":1, "丑":8, "寅":8, "卯":3, "辰":4, "巳":4, "午":9, "未":2, "申":2, "酉":7, "戌":6, "亥":6}
-    ma_palace = zhi_palace_map[ma_zhi]
+    ma_palace = zhi_palace_map[ma_xing_map[t_zhi]]
 
     # 2. 板塊與本人定義
     wuxing_map = {1:"水", 2:"土", 3:"木", 4:"木", 5:"土", 6:"金", 7:"金", 8:"土", 9:"火"}
@@ -118,33 +108,23 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     # 3. 遍歷九宮計算衝突
     matrix_data = {}
     alerts = []
-    
-    # 門迫邏輯 (門剋宮)
     door_wx = {"休門":"水", "生門":"土", "傷門":"木", "杜門":"木", "景門":"火", "死門":"土", "驚門":"金", "開門":"金"}
 
     for i in range(1, 10):
         tg, dg, door = tian_gan.get(i, "--"), di_pan[i], door_pos.get(i, "--")
         is_ma = (i == ma_palace)
-        is_jixing = False
-        is_menpo = False
+        is_jixing, is_menpo = False, False
         
-        # 擊刑判定 (本金損耗)
-        if tg == "戊" and i == 3: is_jixing = True
-        if tg == "己" and i == 2: is_jixing = True
-        if tg == "庚" and i == 8: is_jixing = True
-        if tg == "辛" and i == 9: is_jixing = True
-        if tg == "壬" and i == 4: is_jixing = True
-        if tg == "癸" and i == 4: is_jixing = True
+        # 擊刑判定
+        if (tg == "戊" and i == 3) or (tg == "己" and i == 2) or (tg == "庚" and i == 8) or \
+           (tg == "辛" and i == 9) or (tg == "壬" and i == 4) or (tg == "癸" and i == 4): is_jixing = True
 
-        # 門迫判定 (執行力受阻)
+        # 門迫判定
         if door in door_wx:
-            m_wx = door_wx[door]
-            p_wx = wuxing_map[i]
-            # 五行相剋判定
+            m_wx, p_wx = door_wx[door], wuxing_map[i]
             if (m_wx=="水" and p_wx=="火") or (m_wx=="火" and p_wx=="金") or \
                (m_wx=="金" and p_wx=="木") or (m_wx=="木" and p_wx=="土") or \
-               (m_wx=="土" and p_wx=="水"):
-                is_menpo = True
+               (m_wx=="土" and p_wx=="水"): is_menpo = True
 
         # 寫入警報
         if is_jixing: alerts.append(f"⚡ 第 {i} 宮【擊刑】：資本耗損風險，嚴防洗盤。")
