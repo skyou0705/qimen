@@ -9,9 +9,8 @@ st.set_page_config(page_title="奇門遁甲 金融儀表板", layout="wide")
 if 'last_now' not in st.session_state: st.session_state.last_now = datetime.now()
 
 # ==========================================
-# 奇門遁甲矩陣運算 (移到前面，讓側邊欄可以提早讀取時辰)
+# 奇門遁甲矩陣運算 (提前計算，讓側邊欄知道現在的時辰)
 # ==========================================
-# 決定 'now' 的時間
 use_custom_time_state = st.sidebar.toggle("開啟手動回測模式", value=False)
 if use_custom_time_state:
     now = st.session_state.last_now
@@ -33,15 +32,19 @@ with st.sidebar:
     if use_custom_time_state:
         with st.form("time_form"):
             d = st.date_input("選擇日期", st.session_state.last_now.date())
-            # 🚀 這裡修改了標題，加上括號提示！
-            t = st.time_input("選擇時間 (2小時為一時辰)", st.session_state.last_now.time())
+            
+            # 🚀 根據你的設計圖，使用分欄把時間輸入框和時辰名稱排在同一行！
+            col_t1, col_t2 = st.columns([2.5, 1])
+            with col_t1:
+                t = st.time_input("選擇時間 (2小時為一時辰)", st.session_state.last_now.time())
+            with col_t2:
+                # 使用 CSS 把字體往下推，剛好跟輸入框對齊
+                st.markdown(f"<div style='margin-top: 32px; color: #f1c40f; font-weight: bold; font-size: 15px;'>({shichen_name})</div>", unsafe_allow_html=True)
+                
             if st.form_submit_button("🚀 執行時空推演"): 
                 st.session_state.last_now = datetime.combine(d, t)
                 st.rerun()
                 
-    # 🚀 在側邊欄直接顯示現在鎖定的時辰，不用再轉頭去看右邊！
-    st.info(f"📍 當前鎖定時辰：【 {shichen_name} 】")
-    
     st.divider() # 分隔線
     
     # 🚀 yfinance 個股 X 光機
@@ -85,7 +88,6 @@ with st.sidebar:
             except Exception as e:
                 st.error("⚠️ 數據讀取失敗，可能是 API 限制或代號錯誤。")
 
-
 # ==========================================
 # 主視覺佈局與 HUD 面板
 # ==========================================
@@ -118,7 +120,6 @@ st.markdown(f"""
 # ==========================================
 col_left, col_right = st.columns([1.8, 1])
 
-# --- 左側：九宮格雷達 ---
 with col_left:
     st.markdown("""
     <style>
@@ -183,7 +184,6 @@ with col_left:
 </div>\n"""
     st.markdown(html + '</div>', unsafe_allow_html=True)
 
-# --- 右側：決策面板與資金雷達 ---
 with col_right:
     st.markdown("""
     <style>
