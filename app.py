@@ -9,7 +9,7 @@ st.set_page_config(page_title="奇門遁甲 金融儀表板", layout="wide")
 if 'last_now' not in st.session_state: st.session_state.last_now = datetime.now()
 
 # ==========================================
-# 奇門遁甲矩陣運算 (提前計算，讓側邊欄知道現在的時辰)
+# 奇門遁甲矩陣運算
 # ==========================================
 use_custom_time_state = st.sidebar.toggle("開啟手動回測模式", value=False)
 if use_custom_time_state:
@@ -30,20 +30,19 @@ with st.sidebar:
     st.header("🕰️ 盤前推演控制器")
     
     if use_custom_time_state:
+        # 🚀 抓取「選擇器」當下記憶的時辰，讓標題動態變化
+        form_time_params = get_qimen_time_params(st.session_state.last_now)
+        form_shichen = form_time_params['時柱'][1] + "時"
+
         with st.form("time_form"):
             d = st.date_input("選擇日期", st.session_state.last_now.date())
             
-            # 🚀 終極對齊：縮小間距，完美貼合輸入框右側！
-            col_t1, col_t2 = st.columns([1.2, 1], gap="small")
-            with col_t1:
-                t = st.time_input("選擇時間", st.session_state.last_now.time())
-            with col_t2:
-                # margin-top 對齊框線，margin-left 把文字往左邊拉近輸入框
-                st.markdown(f"<div style='margin-top: 28px; margin-left: -5px; color: #f1c40f; font-weight: bold; font-size: 16px;'>({shichen_name})</div>", unsafe_allow_html=True)
-                
+            # 🚀 解決方案：把時辰直接寫在輸入框的正上方標題！
+            t = st.time_input(f"選擇時間 ⏳ (當前鎖定：{form_shichen})", st.session_state.last_now.time())
+            
             if st.form_submit_button("🚀 執行時空推演"): 
                 st.session_state.last_now = datetime.combine(d, t)
-                st.rerun()
+                st.rerun() # 強制刷新，標題的時辰就會立刻跟著變！
                 
     st.divider() # 分隔線
     
