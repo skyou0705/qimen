@@ -1,4 +1,5 @@
 import streamlit as st
+import yfinance as yf
 from datetime import datetime
 from time_engine import get_qimen_time_params
 from qimen_matrix import generate_full_matrix
@@ -6,6 +7,8 @@ from qimen_matrix import generate_full_matrix
 st.set_page_config(page_title="奇門遁甲 金融儀表板", layout="wide")
 
 if 'last_now' not in st.session_state: st.session_state.last_now = datetime.now()
+
+# --- 側邊欄 ---
 with st.sidebar:
     st.header("🕰️ 盤前推演控制器")
     use_custom_time = st.toggle("開啟手動回測模式", value=False)
@@ -16,6 +19,51 @@ with st.sidebar:
             if st.form_submit_button("🚀 執行時空推演"): st.session_state.last_now = datetime.combine(d, t)
         now = st.session_state.last_now
     else: now = datetime.now()
+    
+    st.divider() # 分隔線
+    
+    # 🚀 新增：yfinance 個股 X 光機
+    st.header("📈 個股 X 光機")
+    st.caption("驗證奇門板塊與個股實體量能的共振狀態")
+    ticker_input = st.text_input("輸入美股代號 (如 AAPL, NVDA, POET)", value="").upper()
+    
+    if ticker_input:
+        with st.spinner("掃描量價數據中..."):
+            try:
+                stock = yf.Ticker(ticker_input)
+                # 抓取近 5 天數據來計算動能
+                hist = stock.history(period="5d")
+                
+                if not hist.empty:
+                    current_price = hist['Close'].iloc[-1]
+                    prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+                    pct_change = ((current_price - prev_close) / prev_close) * 100
+                    
+                    current_vol = hist['Volume'].iloc[-1]
+                    avg_vol = hist['Volume'].mean()
+                    vol_ratio = current_vol / avg_vol if avg_vol > 0 else 0
+                    
+                    # 顏色與動能判定
+                    color = "#2ecc71" if pct_change >= 0 else "#e74c3c"
+                    if vol_ratio > 1.3:
+                        vol_status, vol_color = "🔥 動能爆發 (主升段警示)", "#e74c3c"
+                    elif vol_ratio < 0.7:
+                        vol_status, vol_color = "❄️ 量能枯竭 (虛假突破/盤整)", "#3498db"
+                    else:
+                        vol_status, vol_color = "📊 量能平穩 (跟隨大盤)", "#f1c40f"
+
+                    st.markdown(f"""
+                    <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border-left: 4px solid {color}; border-right: 1px solid #333; border-top: 1px solid #333; border-bottom: 1px solid #333;'>
+                        <div style='font-size: 18px; font-weight: bold; color: #E0E0E0;'>{ticker_input}</div>
+                        <div style='font-size: 26px; color: {color}; font-weight: bold; margin-bottom: 5px;'>${current_price:.2f} <span style='font-size: 14px;'>({pct_change:+.2f}%)</span></div>
+                        <div style='font-size: 11px; color: #888;'>5日均量比: <span style='color: #ccc; font-weight: bold;'>{(vol_ratio*100):.0f}%</span></div>
+                        <div style='font-size: 12px; color: {vol_color}; font-weight: bold; margin-top: 4px;'>{vol_status}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.error("⚠️ 找不到該股票數據，請確認代號是否正確。")
+            except Exception as e:
+                st.error("⚠️ 數據讀取失敗，可能是 API 限制或代號錯誤。")
 
 time_params = get_qimen_time_params(now)
 matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
@@ -58,16 +106,12 @@ with col_left:
         background-color: #222; border: 1px solid #333; padding: 10px; border-radius: 4px; height: 160px; 
         position: relative; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
     }
-    /* 核心修復：徹底分離板塊層與狀態層 */
     .top-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2px; }
     .header-left { display: flex; align-items: center; flex-wrap: wrap; }
     .header-right { display: flex; align-items: center; white-space: nowrap; }
-    
     .sector-tag { font-size: 11px; color: #5dade2; font-weight: bold; margin-bottom: 0; }
     .user-badge { background-color: #f1c40f; color: #000; font-size: 8px; padding: 1px 3px; border-radius: 2px; margin-left: 3px; }
     .rel-tag { font-size: 9px; padding: 2px 5px; border-radius: 3px; font-weight: bold; margin-left: 5px; }
-    
-    /* 專屬狀態指示條 */
     .status-bar { display: flex; flex-wrap: wrap; gap: 3px; width: 100%; justify-content: flex-start; margin-bottom: 6px; }
     .status-icon { font-size: 9px; padding: 0 2px; border-radius: 2px; border: 1px solid currentColor; margin-left: 0; }
     
@@ -91,7 +135,6 @@ with col_left:
         d = palace_data[p]
         css = f"palace-box {'danger' if d['危險'] else ''} {'kongwang' if d['空亡'] else ''} {'center-core' if p==5 else ''}"
         
-        # 狀態圖示
         icons_html = ""
         if d['馬星']: icons_html += '<span class="status-icon" style="color:#5dade2; border-color:#5dade2;">🐎馬</span>'
         if d['擊刑']: icons_html += '<span class="status-icon" style="color:#e74c3c; border-color:#e74c3c;">⚡刑</span>'
@@ -99,11 +142,9 @@ with col_left:
         if d['空亡']: icons_html += '<span class="status-icon" style="color:#777; border-color:#777;">空</span>'
         status_bar_html = f'<div class="status-bar">{icons_html}</div>'
 
-        # 關係標籤
         rel_class = "rel-profit" if "生我" in d['關係'] else "rel-risk" if "剋我" in d['關係'] else "rel-ctrl" if "我剋" in d['關係'] else "rel-flat"
         rel_html = f'<div class="rel-tag {rel_class}">{d["關係"] if not d["本人"] else "📍座標"}</div>'
 
-        # 🚀 新的 HTML 結構，解決重疊Bug
         if p == 5:
             html += f"""<div class="{css}">
 <div class="top-header"><div class="header-left"><div class="sector-tag">🌐 市場中樞</div></div><div class="header-right"><div class="rel-tag rel-flat">{d['關係']}</div></div></div>
