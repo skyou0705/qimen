@@ -18,7 +18,9 @@ with st.sidebar:
         with st.form("time_form"):
             d = st.date_input("選擇日期", st.session_state.last_now.date())
             t = st.time_input("選擇時間", st.session_state.last_now.time())
-            if st.form_submit_button("🚀 執行時空推演"): st.session_state.last_now = datetime.combine(d, t)
+            if st.form_submit_button("🚀 執行時空推演"): 
+                st.session_state.last_now = datetime.combine(d, t)
+                st.rerun() # 🚀 修復 Bug：強制刷新頁面，解決慢半拍問題
         now = st.session_state.last_now
     else: now = datetime.now()
     
@@ -72,6 +74,8 @@ time_params = get_qimen_time_params(now)
 matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
 info, palace_data = matrix_result['莊家情報'], matrix_result['九宮格']
 center_rel = palace_data[5]['關係']
+# 🌟 擷取時辰名稱 (時柱的第二個字)
+shichen_name = time_params['時柱'][1] + "時"
 
 # ==========================================
 # 主視覺佈局與 HUD 面板
@@ -82,6 +86,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# 🚀 這裡修改了 HUD，加入了黃色的時辰標記
 st.markdown(f"""
 <style>
 .hud-container {{ display: flex; justify-content: space-between; background-color: #1a1a1a; padding: 10px 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 12px; }}
@@ -91,7 +96,7 @@ st.markdown(f"""
 .hud-value {{ font-size: 14px; font-weight: bold; color: #ccc; }}
 </style>
 <div class="hud-container">
-    <div class="hud-item"><div class="hud-label">真太陽時</div><div class="hud-value">{now.strftime("%H:%M")}</div></div>
+    <div class="hud-item"><div class="hud-label">真太陽時</div><div class="hud-value">{now.strftime("%H:%M")} <span style="font-size: 11px; color: #f1c40f; font-weight: normal;">({shichen_name})</span></div></div>
     <div class="hud-item"><div class="hud-label">時空矩陣</div><div class="hud-value" style="color:#f1c40f">{matrix_result['遁法']}遁 {matrix_result['局數']} 局</div></div>
     <div class="hud-item"><div class="hud-label">本人(日)</div><div class="hud-value">{time_params['日柱']}</div></div>
     <div class="hud-item"><div class="hud-label">標的(時)</div><div class="hud-value">{time_params['時柱']}</div></div>
@@ -195,7 +200,6 @@ with col_right:
     else:
         st.markdown('<div style="font-size:10px; color:#2ecc71; padding-left:5px;">結構穩定，無即時預警。</div>', unsafe_allow_html=True)
 
-    # 確保 6 個格子出現的關鍵迴圈
     st.markdown('<div class="section-title" style="margin-top: 20px;">🧭 板塊資金流向雷達</div>', unsafe_allow_html=True)
     insight_html = '<div class="insight-grid">'
     for p_num, d in palace_data.items():
