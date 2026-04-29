@@ -55,6 +55,7 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     xun_shou = f"甲{zhi_list[xun_zhi_idx]}"
     xun_yi_map = {"甲子":"戊", "甲戌":"己", "甲申":"庚", "甲午":"辛", "甲辰":"壬", "甲寅":"癸"}
     xun_yi = xun_yi_map[xun_shou]
+    
     base_palace = next(p for p, g in di_pan.items() if g == xun_yi)
     star_rot = [1, 8, 3, 4, 9, 2, 7, 6]
     star_base = {1:"天蓬", 8:"天任", 3:"天沖", 4:"天輔", 9:"天英", 2:"天芮", 7:"天柱", 6:"天心", 5:"天禽"}
@@ -63,6 +64,7 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     zs_door = door_base[base_palace if base_palace != 5 else 2]
     hour_gan_palace = next(p for p, g in di_pan.items() if g == t_gan) if t_gan != "甲" else ju_num
     if hour_gan_palace == 5: hour_gan_palace = 2
+    
     star_pos = {}
     rot_idx_start = star_rot.index(base_palace if base_palace != 5 else 2)
     rot_idx_end = star_rot.index(hour_gan_palace)
@@ -70,11 +72,13 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     for i, p in enumerate(star_rot):
         star_pos[star_rot[(i + offset) % 8]] = star_base[p]
     star_pos[5] = "--"
+    
     tian_gan = {}
     for p in star_rot:
         orig_p = star_rot[(star_rot.index(p) - offset) % 8]
         tian_gan[p] = di_pan[orig_p]
     tian_gan[5] = "--"
+    
     step_dist = (t_zhi_idx - xun_zhi_idx) % 12
     zs_pos = base_palace
     for _ in range(step_dist):
@@ -87,6 +91,7 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     door_offset = (zs_end_idx - zs_start_idx) % 8
     for i, p in enumerate(door_rot): door_pos[door_rot[(i + door_offset) % 8]] = door_base[p]
     door_pos[5] = "--"
+    
     god_list = ["值符", "騰蛇", "太陰", "六合", "白虎", "玄武", "九地", "九天"]; god_pos = {}
     god_idx_start = star_rot.index(hour_gan_palace)
     for i in range(8):
@@ -94,7 +99,6 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
         god_pos[p] = god_list[i]
 
     # --- 🚀 核心升級：馬星、門迫、擊刑演算法 ---
-    # 1. 馬星定位 (動能催化劑)
     ma_xing_map = {"申":"寅", "子":"寅", "辰":"寅", "寅":"申", "午":"申", "戌":"申", "亥":"巳", "卯":"巳", "未":"巳", "巳":"亥", "酉":"亥", "丑":"亥"}
     zhi_palace_map = {"子":1, "丑":8, "寅":8, "卯":3, "辰":4, "巳":4, "午":9, "未":2, "申":2, "酉":7, "戌":6, "亥":6}
     ma_palace = zhi_palace_map[ma_xing_map[t_zhi]]
@@ -102,7 +106,14 @@ def generate_full_matrix(jieqi, day_ganzhi, time_ganzhi):
     # 2. 板塊與本人定義
     wuxing_map = {1:"水", 2:"土", 3:"木", 4:"木", 5:"土", 6:"金", 7:"金", 8:"土", 9:"火"}
     sector_map = {9:"科技/AI", 1:"金融/流動", 3:"醫療/週期", 4:"綠能/消費", 7:"半導體/硬體", 6:"藍籌/軍工", 8:"地產/基建", 2:"價值/避險", 5:"市場中樞"}
-    user_palace = next(p for p, g in di_pan.items() if g == day_ganzhi[0])
+    
+    # 🌟 修復 Bug：當日干為「甲」時，找出它隱藏的六儀
+    user_gan = day_ganzhi[0]
+    if user_gan == "甲":
+        # 如果日柱是甲子、甲戌等，直接用 xun_yi_map 轉換成對應的戊、己等
+        user_gan = xun_yi_map.get(day_ganzhi, "戊") # 加上安全預設值
+        
+    user_palace = next(p for p, g in di_pan.items() if g == user_gan)
     user_wx = wuxing_map[user_palace]
 
     # 3. 遍歷九宮計算衝突
