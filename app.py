@@ -9,41 +9,26 @@ st.set_page_config(page_title="奇門遁甲 金融儀表板", layout="wide")
 if 'last_now' not in st.session_state: st.session_state.last_now = datetime.now()
 
 # ==========================================
-# 奇門遁甲矩陣運算 (提前計算，讓側邊欄知道現在的時辰)
-# ==========================================
-use_custom_time_state = st.sidebar.toggle("開啟手動回測模式", value=False)
-if use_custom_time_state:
-    now = st.session_state.last_now
-else:
-    now = datetime.now()
-
-time_params = get_qimen_time_params(now)
-matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
-info, palace_data = matrix_result['莊家情報'], matrix_result['九宮格']
-center_rel = palace_data[5]['關係']
-shichen_name = time_params['時柱'][1] + "時"
-
-# ==========================================
 # 側邊欄：控制器與 X 光機
 # ==========================================
 with st.sidebar:
     st.header("🕰️ 盤前推演控制器")
+    use_custom_time_state = st.toggle("開啟手動回測模式", value=False)
     
     if use_custom_time_state:
-        with st.form("time_form"):
-            d = st.date_input("選擇日期", st.session_state.last_now.date())
+        d = st.date_input("選擇日期", st.session_state.last_now.date())
+        # 🚀 恢復極簡大師級設計，去除多餘的輔助文字
+        t = st.time_input("選擇時間", st.session_state.last_now.time())
+        
+        # 🚀 保留全自動即時反應模式：只要時間一變，瞬間重新計算刷新！
+        new_dt = datetime.combine(d, t)
+        if new_dt != st.session_state.last_now:
+            st.session_state.last_now = new_dt
+            st.rerun()
             
-            # 🚀 根據你的設計圖，使用分欄把時間輸入框和時辰名稱排在同一行！
-            col_t1, col_t2 = st.columns([2.5, 1])
-            with col_t1:
-                t = st.time_input("選擇時間 (2小時為一時辰)", st.session_state.last_now.time())
-            with col_t2:
-                # 使用 CSS 把字體往下推，剛好跟輸入框對齊
-                st.markdown(f"<div style='margin-top: 32px; color: #f1c40f; font-weight: bold; font-size: 15px;'>({shichen_name})</div>", unsafe_allow_html=True)
-                
-            if st.form_submit_button("🚀 執行時空推演"): 
-                st.session_state.last_now = datetime.combine(d, t)
-                st.rerun()
+        now = st.session_state.last_now
+    else:
+        now = datetime.now()
                 
     st.divider() # 分隔線
     
@@ -87,6 +72,15 @@ with st.sidebar:
                     st.error("⚠️ 找不到該股票數據，請確認代號是否正確。")
             except Exception as e:
                 st.error("⚠️ 數據讀取失敗，可能是 API 限制或代號錯誤。")
+
+# ==========================================
+# 奇門遁甲矩陣運算
+# ==========================================
+time_params = get_qimen_time_params(now)
+matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
+info, palace_data = matrix_result['莊家情報'], matrix_result['九宮格']
+center_rel = palace_data[5]['關係']
+shichen_name = time_params['時柱'][1] + "時"
 
 # ==========================================
 # 主視覺佈局與 HUD 面板
