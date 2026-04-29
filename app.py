@@ -9,20 +9,38 @@ st.set_page_config(page_title="奇門遁甲 金融儀表板", layout="wide")
 if 'last_now' not in st.session_state: st.session_state.last_now = datetime.now()
 
 # ==========================================
+# 奇門遁甲矩陣運算 (移到前面，讓側邊欄可以提早讀取時辰)
+# ==========================================
+# 決定 'now' 的時間
+use_custom_time_state = st.sidebar.toggle("開啟手動回測模式", value=False)
+if use_custom_time_state:
+    now = st.session_state.last_now
+else:
+    now = datetime.now()
+
+time_params = get_qimen_time_params(now)
+matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
+info, palace_data = matrix_result['莊家情報'], matrix_result['九宮格']
+center_rel = palace_data[5]['關係']
+shichen_name = time_params['時柱'][1] + "時"
+
+# ==========================================
 # 側邊欄：控制器與 X 光機
 # ==========================================
 with st.sidebar:
     st.header("🕰️ 盤前推演控制器")
-    use_custom_time = st.toggle("開啟手動回測模式", value=False)
-    if use_custom_time:
+    
+    if use_custom_time_state:
         with st.form("time_form"):
             d = st.date_input("選擇日期", st.session_state.last_now.date())
-            t = st.time_input("選擇時間", st.session_state.last_now.time())
+            # 🚀 這裡修改了標題，加上括號提示！
+            t = st.time_input("選擇時間 (2小時為一時辰)", st.session_state.last_now.time())
             if st.form_submit_button("🚀 執行時空推演"): 
                 st.session_state.last_now = datetime.combine(d, t)
-                st.rerun() # 🚀 修復 Bug：強制刷新頁面，解決慢半拍問題
-        now = st.session_state.last_now
-    else: now = datetime.now()
+                st.rerun()
+                
+    # 🚀 在側邊欄直接顯示現在鎖定的時辰，不用再轉頭去看右邊！
+    st.info(f"📍 當前鎖定時辰：【 {shichen_name} 】")
     
     st.divider() # 分隔線
     
@@ -67,15 +85,6 @@ with st.sidebar:
             except Exception as e:
                 st.error("⚠️ 數據讀取失敗，可能是 API 限制或代號錯誤。")
 
-# ==========================================
-# 奇門遁甲矩陣運算
-# ==========================================
-time_params = get_qimen_time_params(now)
-matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
-info, palace_data = matrix_result['莊家情報'], matrix_result['九宮格']
-center_rel = palace_data[5]['關係']
-# 🌟 擷取時辰名稱 (時柱的第二個字)
-shichen_name = time_params['時柱'][1] + "時"
 
 # ==========================================
 # 主視覺佈局與 HUD 面板
@@ -86,7 +95,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 🚀 這裡修改了 HUD，加入了黃色的時辰標記
 st.markdown(f"""
 <style>
 .hud-container {{ display: flex; justify-content: space-between; background-color: #1a1a1a; padding: 10px 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 12px; }}
