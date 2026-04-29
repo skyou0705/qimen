@@ -33,13 +33,13 @@ with st.sidebar:
         with st.form("time_form"):
             d = st.date_input("選擇日期", st.session_state.last_now.date())
             
-            # 🚀 根據你的設計圖，使用分欄把時間輸入框和時辰名稱排在同一行！
-            col_t1, col_t2 = st.columns([2.5, 1])
+            # 🚀 終極對齊：縮小間距，完美貼合輸入框右側！
+            col_t1, col_t2 = st.columns([1.2, 1], gap="small")
             with col_t1:
-                t = st.time_input("選擇時間 (2小時為一時辰)", st.session_state.last_now.time())
+                t = st.time_input("選擇時間", st.session_state.last_now.time())
             with col_t2:
-                # 使用 CSS 把字體往下推，剛好跟輸入框對齊
-                st.markdown(f"<div style='margin-top: 32px; color: #f1c40f; font-weight: bold; font-size: 15px;'>({shichen_name})</div>", unsafe_allow_html=True)
+                # margin-top 對齊框線，margin-left 把文字往左邊拉近輸入框
+                st.markdown(f"<div style='margin-top: 28px; margin-left: -5px; color: #f1c40f; font-weight: bold; font-size: 16px;'>({shichen_name})</div>", unsafe_allow_html=True)
                 
             if st.form_submit_button("🚀 執行時空推演"): 
                 st.session_state.last_now = datetime.combine(d, t)
