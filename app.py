@@ -77,23 +77,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 頂部 HUD
-st.markdown(f"""
-<style>
-.hud-container {{ display: flex; justify-content: space-between; background-color: #1a1a1a; padding: 10px 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 12px; }}
-.hud-item {{ text-align: center; flex: 1; border-right: 1px solid #333; }}
-.hud-item:last-child {{ border-right: none; }}
-.hud-label {{ font-size: 9px; color: #666; margin-bottom: 1px; }}
-.hud-value {{ font-size: 14px; font-weight: bold; color: #ccc; }}
-</style>
-<div class="hud-container">
-    <div class="hud-item"><div class="hud-label">真太陽時</div><div class="hud-value">{now.strftime("%H:%M")}</div></div>
-    <div class="hud-item"><div class="hud-label">時空矩陣</div><div class="hud-value" style="color:#f1c40f">{matrix_result['遁法']}遁 {matrix_result['局數']} 局</div></div>
-    <div class="hud-item"><div class="hud-label">本人(日)</div><div class="hud-value">{time_params['日柱']}</div></div>
-    <div class="hud-item"><div class="hud-label">標的(時)</div><div class="hud-value">{time_params['時柱']}</div></div>
-    <div class="hud-item"><div class="hud-label">值符</div><div class="hud-value" style="color:#e74c3c">{info['值符']}</div></div>
-    <div class="hud-item"><div class="hud-label">值使</div><div class="hud-value" style="color:#2ecc71">{info['值使']}</div></div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    .qimen-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background-color: #111; padding: 8px; border-radius: 8px; }
+    .palace-box { 
+        background-color: #222; border: 1px solid #333; padding: 10px; border-radius: 4px; height: 160px; 
+        position: relative; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+    }
+    .top-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2px; }
+    .header-left { display: flex; align-items: center; flex-wrap: wrap; }
+    .header-right { display: flex; align-items: center; white-space: nowrap; }
+    /* 這裡加上了 white-space: nowrap; 防止板塊名稱被擠到換行 */
+    .sector-tag { font-size: 11px; color: #5dade2; font-weight: bold; margin-bottom: 0; white-space: nowrap; }
+    .user-badge { background-color: #f1c40f; color: #000; font-size: 8px; padding: 1px 3px; border-radius: 2px; margin-left: 3px; }
+    .rel-tag { font-size: 9px; padding: 2px 5px; border-radius: 3px; font-weight: bold; margin-left: 5px; white-space: nowrap; }
+    .status-bar { display: flex; flex-wrap: wrap; gap: 3px; width: 100%; justify-content: flex-start; margin-bottom: 6px; }
+    .status-icon { font-size: 9px; padding: 0 2px; border-radius: 2px; border: 1px solid currentColor; margin-left: 0; white-space: nowrap; }
+    
+    .palace-box.danger { border: 1px solid #e74c3c; box-shadow: inset 0 0 5px rgba(231,76,60,0.2); }
+    .palace-box.kongwang { opacity: 0.35; }
+    .palace-box.center-core { border: 2px dashed #f1c40f; background: radial-gradient(circle, #2a2a2a 0%, #1a1a1a 100%); }
+    .rel-profit { background-color: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+    .rel-risk { background-color: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid #e74c3c; }
+    .rel-ctrl { background-color: rgba(241, 196, 15, 0.2); color: #f1c40f; border: 1px solid #f1c40f; }
+    .rel-flat { background-color: rgba(149, 165, 166, 0.2); color: #95a5a6; border: 1px solid #95a5a6; }
+    
+    .row-1 { display: flex; justify-content: space-between; color: #888; font-size: 11px; margin-top: 0; }
+    .row-2 { text-align: center; font-size: 24px; font-weight: bold; color: #f1c40f; margin: 2px 0; }
+    .row-3 { display: flex; justify-content: center; gap: 6px; font-size: 18px; font-weight: bold; }
+    .p-num { text-align: right; font-size: 9px; color: #333; position: absolute; bottom: 4px; right: 8px; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # 🚀 左右平衡排版 (1.8 : 1)
 col_left, col_right = st.columns([1.8, 1])
@@ -186,7 +200,7 @@ with col_right:
     else:
         st.markdown('<div style="font-size:10px; color:#2ecc71; padding-left:5px;">結構穩定，無即時預警。</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title" style="margin-top: 20px;">🧭 板塊決策雷達 (2x3 Grid)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title" style="margin-top: 20px;">🧭 板塊資金流向雷達</div>', unsafe_allow_html=True)
     insight_html = '<div class="insight-grid">'
     for p_num, d in palace_data.items():
         if p_num != 5 and not d['本人']:
