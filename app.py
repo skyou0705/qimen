@@ -1,12 +1,33 @@
 import streamlit as st
 import yfinance as yf
 from datetime import datetime
+import os
 from time_engine import get_qimen_time_params
 from qimen_matrix import generate_full_matrix
 
+# ==========================================
+# 頁面基本設定與快取引擎
+# ==========================================
 st.set_page_config(page_title="奇門遁甲 金融儀表板", layout="wide")
 
-if 'last_now' not in st.session_state: st.session_state.last_now = datetime.now()
+if 'last_now' not in st.session_state: 
+    st.session_state.last_now = datetime.now()
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_stock_data(ticker):
+    """取得 yfinance 數據並快取 60 秒，避免切換時間時卡頓或被鎖 IP"""
+    stock = yf.Ticker(ticker)
+    return stock.history(period="5d")
+
+def write_snapshot_to_log(filename, content):
+    """寫入日誌的底層邏輯：採用 utf-8 與 a (追加) 模式"""
+    try:
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write(content + "\n" + "-"*50 + "\n")
+        return True
+    except Exception as e:
+        st.error(f"寫入失敗：{e}")
+        return False
 
 # ==========================================
 # 側邊欄：控制器與 X 光機
@@ -17,10 +38,9 @@ with st.sidebar:
     
     if use_custom_time_state:
         d = st.date_input("選擇日期", st.session_state.last_now.date())
-        # 🚀 恢復極簡大師級設計，去除多餘的輔助文字
         t = st.time_input("選擇時間", st.session_state.last_now.time())
         
-        # 🚀 保留全自動即時反應模式：只要時間一變，瞬間重新計算刷新！
+        # 🚀 全自動即時反應模式：時間一變，瞬間重新計算
         new_dt = datetime.combine(d, t)
         if new_dt != st.session_state.last_now:
             st.session_state.last_now = new_dt
@@ -32,16 +52,16 @@ with st.sidebar:
                 
     st.divider() # 分隔線
     
-    # 🚀 yfinance 個股 X 光機
     st.header("📈 個股 X 光機")
     st.caption("驗證奇門板塊與個股實體量能的共振狀態")
-    ticker_input = st.text_input("輸入美股代號 (如 AAPL, NVDA, POET)", value="").upper()
+    
+    # 🚀 綁定 key="target_ticker" 讓代號不會因為換時間而消失
+    ticker_input = st.text_input("輸入美股代號 (如 AAPL, NVDA, POET)", key="target_ticker").upper()
     
     if ticker_input:
-        with st.spinner("掃描量價數據中..."):
+        with st.spinner("掃描即時量價數據中..."):
             try:
-                stock = yf.Ticker(ticker_input)
-                hist = stock.history(period="5d")
+                hist = fetch_stock_data(ticker_input)
                 
                 if not hist.empty:
                     current_price = hist['Close'].iloc[-1]
@@ -68,13 +88,33 @@ with st.sidebar:
                         <div style='font-size: 12px; color: {vol_color}; font-weight: bold; margin-top: 4px;'>{vol_status}</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    # ==========================================
+                    # 📓 一鍵寫入 TXT 復盤日誌模組
+                    # ==========================================
+                    st.write("") # 留白
+                    if st.button("📓 紀錄當前時空快照", use_container_width=True):
+                        # 這裡的寫入需要先去計算當下時辰的奇門參數
+                        temp_params = get_qimen_time_params(now)
+                        temp_matrix = generate_full_matrix(temp_params['當前節氣'], temp_params['日柱'], temp_params['時柱'])
+                        
+                        log_entry = (
+                            f"【時空快照】 {now.strftime('%Y-%m-%d %H:%M:%S')} ({temp_params['時柱'][1]}時)\n"
+                            f"► 矩陣: {temp_matrix['遁法']}遁{temp_matrix['局數']}局 | 值符: {temp_matrix['莊家情報']['值符']} | 值使: {temp_matrix['莊家情報']['值使']}\n"
+                            f"► 標的: {ticker_input} | 價格: ${current_price:.2f} ({pct_change:+.2f}%)\n"
+                            f"► 動能: {vol_status} (均量比 {vol_ratio*100:.0f}%)\n"
+                            f"► 大盤中樞關係: {temp_matrix['九宮格'][5]['關係']}"
+                        )
+                        
+                        if write_snapshot_to_log("trading_diary.txt", log_entry):
+                            st.toast("✅ 數據已寫入 trading_diary.txt", icon="📝")
                 else:
                     st.error("⚠️ 找不到該股票數據，請確認代號是否正確。")
             except Exception as e:
                 st.error("⚠️ 數據讀取失敗，可能是 API 限制或代號錯誤。")
 
 # ==========================================
-# 奇門遁甲矩陣運算
+# 奇門遁甲矩陣運算 (主畫面)
 # ==========================================
 time_params = get_qimen_time_params(now)
 matrix_result = generate_full_matrix(time_params['當前節氣'], time_params['日柱'], time_params['時柱'])
