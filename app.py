@@ -40,7 +40,7 @@ with st.sidebar:
         d = st.date_input("選擇日期", st.session_state.last_now.date())
         t = st.time_input("選擇時間", st.session_state.last_now.time())
         
-        # 🚀 全自動即時反應模式：時間一變，瞬間重新計算
+        # 🚀 全自動即時反應模式
         new_dt = datetime.combine(d, t)
         if new_dt != st.session_state.last_now:
             st.session_state.last_now = new_dt
@@ -50,12 +50,11 @@ with st.sidebar:
     else:
         now = datetime.now()
                 
-    st.divider() # 分隔線
+    st.divider()
     
     st.header("📈 個股 X 光機")
     st.caption("驗證奇門板塊與個股實體量能的共振狀態")
     
-    # 🚀 綁定 key="target_ticker" 讓代號不會因為換時間而消失
     ticker_input = st.text_input("輸入美股代號 (如 AAPL, NVDA, POET)", key="target_ticker").upper()
     
     if ticker_input:
@@ -89,12 +88,9 @@ with st.sidebar:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # ==========================================
                     # 📓 一鍵寫入 TXT 復盤日誌模組
-                    # ==========================================
-                    st.write("") # 留白
+                    st.write("") 
                     if st.button("📓 紀錄當前時空快照", use_container_width=True):
-                        # 這裡的寫入需要先去計算當下時辰的奇門參數
                         temp_params = get_qimen_time_params(now)
                         temp_matrix = generate_full_matrix(temp_params['當前節氣'], temp_params['日柱'], temp_params['時柱'])
                         
@@ -109,7 +105,7 @@ with st.sidebar:
                         if write_snapshot_to_log("trading_diary.txt", log_entry):
                             st.toast("✅ 數據已寫入 trading_diary.txt", icon="📝")
                 else:
-                    st.error("⚠️ 找不到該股票數據，請確認代號是否正確。")
+                    st.error("⚠️ 找不到該股票數據。")
             except Exception as e:
                 st.error("⚠️ 數據讀取失敗，可能是 API 限制或代號錯誤。")
 
@@ -217,6 +213,78 @@ with col_left:
 <div class="p-num">{p}宮</div>
 </div>\n"""
     st.markdown(html + '</div>', unsafe_allow_html=True)
+
+    # ==========================================
+    # 🤖 自動白話文翻譯引擎 (折疊面板)
+    # ==========================================
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True) 
+    
+    QIMEN_DICT = {
+        "神": {
+            "值符": "主力大資本 (護盤力量)：最安全的跟隨信號，大機構重倉。",
+            "騰蛇": "虛假與震盪 (高波動)：走勢上沖下洗，容易出現騙線或假突破。",
+            "太陰": "暗盤與隱蔽 (潛伏期)：主力悄悄吸籌或出貨，成交量可能不明顯。",
+            "六合": "併購與平穩 (合作)：走勢溫和，可能有合作、併購等利好消息。",
+            "白虎": "暴漲暴跌 (高壓)：動能極強，伴隨極大風險，不是大賺就是大賠。",
+            "玄武": "投機與假消息 (洗盤)：充滿投機熱錢，注意防範割韭菜陷阱。",
+            "九地": "底部與盤整 (長線)：股價處於低位或長期橫盤，適合長線耐心佈局。",
+            "九天": "主升段與泡沫 (新高)：股價不斷創新高，FOMO情緒狂熱，隨時準備見頂。"
+        },
+        "星": {
+            "天蓬": "高風險大波動：容易大起大落的妖股，風險偏好極高。",
+            "天任": "穩健慢牛：基本面良好的價值股，走勢緩慢但堅實。",
+            "天沖": "動能突破 (軋空)：直線飆升，速度極快，但不持久。",
+            "天輔": "穩步向上：有實質利好消息支撐，走勢健康。",
+            "天英": "情緒化高熱度：市場焦點，但也容易「見光死」。",
+            "天芮": "問題股與套牢：基本面有瑕疵，或上方有沉重套牢賣壓。",
+            "天柱": "突發利空破壞：容易遇到破壞性的突發壞消息，小心閃崩。",
+            "天心": "核心權重資產：板塊內的龍頭股，受管理層或政策影響大。"
+        },
+        "門": {
+            "休門": "觀望與盤整：資金正在休息，適合觀望，不宜激進。",
+            "生門": "絕對利潤 (多頭)：資金持續流入，有實質獲利空間，強烈看多。",
+            "傷門": "激烈競爭與耗損：板塊內鬥嚴重，或容易產生虧損。",
+            "杜門": "隱藏與停滯：方向不明朗，資金卡住不動，適合掛低單潛伏。",
+            "景門": "消息面驅動：利好滿天飛，高點即將出現，適合獲利了結。",
+            "死門": "資金死水：毫無流動性，基本面惡化，絕對避開。",
+            "驚門": "恐慌與拋售：市場出現驚嚇，容易引發恐慌性殺跌。",
+            "開門": "突破與順暢：阻力打開，事業開展順利，適合進場。"
+        },
+        "干": {
+            "乙": "散戶資金/猶豫震盪",
+            "丙": "熱錢/極端暴漲暴跌",
+            "丁": "精準小資金/奇蹟點位",
+            "戊": "主力大本金/市場基石",
+            "己": "陷阱/泥沼陰跌",
+            "庚": "強大阻力/破壞力量",
+            "辛": "錯誤決策/套牢小損",
+            "壬": "高頻量化/大起大落",
+            "癸": "天網/流動性枯竭"
+        }
+    }
+
+    with st.expander("🤖 深度解析：各板塊底層邏輯 (點擊展開)", expanded=False):
+        for p in [8, 3, 4, 1, 9, 2, 6, 7]: # 排除中宮5
+            d = palace_data[p]
+            if d['空亡']:
+                continue # 空亡的板塊直接跳過不顯示
+                
+            # 設定左側邊框顏色 (生我: 綠, 剋我: 紅, 其他: 黃)
+            border_color = '#2ecc71' if '生我' in d['關係'] else '#e74c3c' if '剋我' in d['關係'] else '#f1c40f'
+            
+            st.markdown(f"""
+            <div style="background-color: #1e1e1e; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid {border_color};">
+                <div style="font-size: 14px; font-weight: bold; color: #5dade2; margin-bottom: 5px;">
+                    {p}宮 - {d['板塊']} <span style="font-size:12px; color:#aaa; font-weight:normal;">({d['關係']})</span> {'<span style="color:#f1c40f;font-size:12px;">[📍本人坐標]</span>' if d['本人'] else ''}
+                </div>
+                <div style="font-size: 12px; color: #ccc; line-height: 1.6;">
+                    <span style="color: #aaa;">[{d['神']}]</span> {QIMEN_DICT['神'].get(d['神'], '未知')}<br>
+                    <span style="color: #aaa;">[{d['星']}]</span> {QIMEN_DICT['星'].get(d['星'], '未知')}<br>
+                    <span style="color: #aaa;">[{d['門']}]</span> {QIMEN_DICT['門'].get(d['門'], '未知')}<br>
+                    <span style="color: #aaa;">[{d['天干']}/{d['地干']}]</span> 天盤 {QIMEN_DICT['干'].get(d['天干'], '')} 遇上 地盤 {QIMEN_DICT['干'].get(d['地干'], '')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 with col_right:
     st.markdown("""
