@@ -67,17 +67,15 @@ with st.sidebar:
                     avg_vol = hist['Volume'].mean()
                     vol_ratio = current_vol / avg_vol if avg_vol > 0 else 0
                     
-                    # --- 新增：模擬買賣力道演算法 ---
-                    # 邏輯：利用價格變動率(pct_change)結合量能比，模擬主動買賣盤比例
-                    sensitivity = 8.5 # 靈敏度系數
+                    # 模擬買賣力道演算法
+                    sensitivity = 8.5 
                     buy_force = 50 + (pct_change * sensitivity)
-                    # 修正：如果量能比極高且下跌，強化賣出比例
                     if vol_ratio > 1.3 and pct_change < 0:
                         buy_force -= (vol_ratio * 5)
                     elif vol_ratio > 1.3 and pct_change > 0:
                         buy_force += (vol_ratio * 5)
                         
-                    buy_force = max(5, min(95, buy_force)) # 限制在 5%-95% 避免 UI 崩潰
+                    buy_force = max(5, min(95, buy_force))
                     sell_force = 100 - buy_force
                     
                     color = "#2ecc71" if pct_change >= 0 else "#e74c3c"
@@ -88,25 +86,24 @@ with st.sidebar:
                     else:
                         vol_status, vol_color = "📊 量能平穩 (跟隨大盤)", "#f1c40f"
 
-                    # 顯示主面板
-                    st.markdown(f"""
-                    <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; border-left: 4px solid {color};'>
-                        <div style='font-size: 18px; font-weight: bold; color: #E0E0E0;'>{ticker_input}</div>
-                        <div style='font-size: 26px; color: {color}; font-weight: bold;'>${current_price:.2f} <span style='font-size: 14px;'>({pct_change:+.2f}%)</span></div>
-                        <div style='font-size: 11px; color: #888; margin-top:5px;'>5日均量比: <span style='color: #ccc; font-weight: bold;'>{(vol_ratio*100):.0f}%</span></div>
-                        
-                        <div style="margin-top: 15px; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 10px; color: #aaa;">
-                            <span>主動買入力道</span>
-                            <span>主動賣出力道</span>
-                        </div>
-                        <div style="width: 100%; background-color: #333; border-radius: 10px; height: 18px; display: flex; overflow: hidden; border: 1px solid #444;">
-                            <div style="width: {buy_force}%; background-color: #2ecc71; text-align: center; color: white; font-size: 10px; line-height: 18px; font-weight: bold;">{buy_force:.0f}%</div>
-                            <div style="width: {sell_force}%; background-color: #e74c3c; text-align: center; color: white; font-size: 10px; line-height: 18px; font-weight: bold;">{sell_force:.0f}%</div>
-                        </div>
-                        
-                        <div style='font-size: 12px; color: {vol_color}; font-weight: bold; margin-top: 10px;'>{vol_status}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # 修正：移除HTML前的多餘空白，避免被解析為程式碼區塊
+                    html_content = f"""
+<div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; border-left: 4px solid {color};'>
+<div style='font-size: 18px; font-weight: bold; color: #E0E0E0;'>{ticker_input}</div>
+<div style='font-size: 26px; color: {color}; font-weight: bold;'>${current_price:.2f} <span style='font-size: 14px;'>({pct_change:+.2f}%)</span></div>
+<div style='font-size: 11px; color: #888; margin-top:5px;'>5日均量比: <span style='color: #ccc; font-weight: bold;'>{(vol_ratio*100):.0f}%</span></div>
+<div style="margin-top: 15px; margin-bottom: 5px; display: flex; justify-content: space-between; font-size: 10px; color: #aaa;">
+<span>主動買入力道</span>
+<span>主動賣出力道</span>
+</div>
+<div style="width: 100%; background-color: #333; border-radius: 10px; height: 18px; display: flex; overflow: hidden; border: 1px solid #444;">
+<div style="width: {buy_force:.2f}%; background-color: #2ecc71; text-align: center; color: white; font-size: 10px; line-height: 18px; font-weight: bold;">{buy_force:.0f}%</div>
+<div style="width: {sell_force:.2f}%; background-color: #e74c3c; text-align: center; color: white; font-size: 10px; line-height: 18px; font-weight: bold;">{sell_force:.0f}%</div>
+</div>
+<div style='font-size: 12px; color: {vol_color}; font-weight: bold; margin-top: 10px;'>{vol_status}</div>
+</div>
+"""
+                    st.markdown(html_content, unsafe_allow_html=True)
 
                     st.write("") 
                     if st.button("📓 紀錄當前時空快照", use_container_width=True):
