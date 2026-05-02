@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 from datetime import datetime
-import os
 from time_engine import get_qimen_time_params
 from qimen_matrix import generate_full_matrix
 
@@ -18,16 +17,6 @@ def fetch_stock_data(ticker):
     """取得 yfinance 數據並快取 60 秒"""
     stock = yf.Ticker(ticker)
     return stock.history(period="5d")
-
-def write_snapshot_to_log(filename, content):
-    """寫入日誌邏輯"""
-    try:
-        with open(filename, "a", encoding="utf-8") as f:
-            f.write(content + "\n" + "-"*50 + "\n")
-        return True
-    except Exception as e:
-        st.error(f"寫入失敗：{e}")
-        return False
 
 # ==========================================
 # 側邊欄：控制器與 X 光機
@@ -86,7 +75,6 @@ with st.sidebar:
                     else:
                         vol_status, vol_color = "📊 量能平穩 (跟隨大盤)", "#f1c40f"
 
-                    # 修正：移除HTML前的多餘空白，避免被解析為程式碼區塊
                     html_content = f"""
 <div style='background-color: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid #333; border-left: 4px solid {color};'>
 <div style='font-size: 18px; font-weight: bold; color: #E0E0E0;'>{ticker_input}</div>
@@ -105,19 +93,6 @@ with st.sidebar:
 """
                     st.markdown(html_content, unsafe_allow_html=True)
 
-                    st.write("") 
-                    if st.button("📓 紀錄當前時空快照", use_container_width=True):
-                        temp_params = get_qimen_time_params(now)
-                        temp_matrix = generate_full_matrix(temp_params['當前節氣'], temp_params['日柱'], temp_params['時柱'])
-                        log_entry = (
-                            f"【時空快照】 {now.strftime('%Y-%m-%d %H:%M:%S')} ({temp_params['時柱'][1]}時)\n"
-                            f"► 矩陣: {temp_matrix['遁法']}遁{temp_matrix['局數']}局 | 值符: {temp_matrix['莊家情報']['值符']} | 值使: {temp_matrix['莊家情報']['值使']}\n"
-                            f"► 標的: {ticker_input} | 價格: ${current_price:.2f} ({pct_change:+.2f}%)\n"
-                            f"► 動能: {vol_status} (買盤:{buy_force:.0f}% 賣盤:{sell_force:.0f}%)\n"
-                            f"► 大盤中樞關係: {temp_matrix['九宮格'][5]['關係']}"
-                        )
-                        if write_snapshot_to_log("trading_diary.txt", log_entry):
-                            st.toast("✅ 數據已寫入日誌", icon="📝")
                 else:
                     st.error("⚠️ 找不到數據。")
             except Exception as e:
