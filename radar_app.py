@@ -1,56 +1,84 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
 from datetime import datetime
 import time
 
 # ==========================================
-# 頁面設定 (適合放在副螢幕全螢幕顯示)
+# 頁面設定 (Cyberpunk UI)
 # ==========================================
-st.set_page_config(page_title="終極 X 光雷達", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="終極 X 光雷達 | 雙模組", layout="wide", initial_sidebar_state="collapsed")
 
 # ==========================================
-# 核心邏輯區
+# 核心邏輯區：雙模組數據引擎
 # ==========================================
-@st.cache_data(ttl=50, show_spinner=False) # 快取 50 秒，配合 60 秒刷新
-def fetch_radar_data(ticker):
+@st.cache_data(ttl=50, show_spinner=False)
+def fetch_radar_data(ticker, mode):
     try:
         stock = yf.Ticker(ticker)
-        hist = stock.history(period="5d")
-        if hist.empty: return None
+        
+        # 🛡️ 根據作戰模式，動態調整抓取級別與 KS 趨勢參數
+        if mode == "🌊 波段模式 (持股 1~2 週)":
+            period_str = "3mo"     # 抓過去 3 個月
+            interval_str = "1d"    # 日K線
+            ema_length = 20        # 波段防守線：20日 EMA
+        else:
+            period_str = "5d"      # 抓過去 5 天
+            interval_str = "5m"    # 5分鐘K線
+            ema_length = 200       # 當沖防守線：200期 EMA (5分K的200EMA)
+
+        hist = stock.history(period=period_str, interval=interval_str)
+        if hist.empty or len(hist) < ema_length: 
+            return None
+        
+        # 🧠 計算 KS 趨勢引擎的核心：EMA 防守線
+        hist['EMA'] = hist['Close'].ewm(span=ema_length, adjust=False).mean()
         
         current_price = hist['Close'].iloc[-1]
-        prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+        prev_close = hist['Close'].iloc[-2]
+        current_ema = hist['EMA'].iloc[-1]
         pct_change = ((current_price - prev_close) / prev_close) * 100
         
+        # 計算當前量能與均量比
         current_vol = hist['Volume'].iloc[-1]
         avg_vol = hist['Volume'].mean()
         vol_ratio = current_vol / avg_vol if avg_vol > 0 else 0
         
-        # 買賣力道演算法
+        # ⚡ 動能買賣力道演算法 (X光機核心)
         sensitivity = 8.5 
-        buy_force = max(5, min(95, 50 + (pct_change * sensitivity)))
+        buy_force = 50 + (pct_change * sensitivity)
         if vol_ratio > 1.3:
             buy_force += (vol_ratio * 5) if pct_change > 0 else -(vol_ratio * 5)
         buy_force = max(5, min(95, buy_force))
         
         return {
-            "price": current_price, "pct": pct_change, 
-            "vol_ratio": vol_ratio, "buy": buy_force, "sell": 100 - buy_force
+            "price": current_price, 
+            "pct": pct_change, 
+            "vol_ratio": vol_ratio, 
+            "buy": buy_force, 
+            "sell": 100 - buy_force,
+            "ema": current_ema,
+            "is_above_ema": current_price > current_ema,
+            "ema_length": ema_length
         }
-    except:
+    except Exception as e:
         return None
 
 # ==========================================
-# UI 介面區
+# UI 介面區：控制台
 # ==========================================
-st.markdown("<h3 style='color:#E0E0E0;'>📡 實體量能監控雷達</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='color:#E0E0E0;'>📡 實體量能監控雷達 <span style='font-size:14px; color:#00FF7F;'>[KS 趨勢融合版]</span></h3>", unsafe_allow_html=True)
 
-# 讓你自己輸入要監控的股票 (用逗號隔開)
-default_tickers = "APLD, SOUN, NVDA, TSLA"
-watch_list_str = st.text_input("輸入監控清單 (逗號分隔)", value=default_tickers)
-tickers = [t.strip().upper() for t in watch_list_str.split(",") if t.strip()]
+col_input, col_mode = st.columns([2, 2])
+with col_input:
+    watch_list_str = st.text_input("輸入監控清單 (逗號分隔)", value="APLD, SOUN, NVDA, TSLA, TQQQ")
+    tickers = [t.strip().upper() for t in watch_list_str.split(",") if t.strip()]
+with col_mode:
+    # 🚀 雙引擎切換開關
+    combat_mode = st.radio("選擇作戰模組：", 
+                          ["🌊 波段模式 (持股 1~2 週)", "⚡ 極短線當沖 (日內 / ETF)"], 
+                          horizontal=True)
 
-# 頂部控制列
 col1, col2 = st.columns([1, 4])
 with col1:
     auto_refresh = st.toggle("啟動 60 秒自動掃描", value=True)
@@ -59,38 +87,89 @@ with col2:
 
 st.divider()
 
-# 動態生成卡片網格 (每排顯示 3 到 4 個)
+# ==========================================
+# 動態生成卡片網格 (賽博龐克 UI)
+# ==========================================
 cols = st.columns(4)
 for i, ticker in enumerate(tickers):
-    data = fetch_radar_data(ticker)
+    data = fetch_radar_data(ticker, combat_mode)
     if data:
-        color = "#2ecc71" if data['pct'] >= 0 else "#e74c3c"
-        status = "🔥 爆發" if data['vol_ratio'] > 1.3 else "❄️ 枯竭" if data['vol_ratio'] < 0.7 else "📊 平穩"
+        # 1. 判斷動能與顏色
+        is_up = data['pct'] >= 0
+        color = "#00FF7F" if is_up else "#FF3366" 
+        bg_color = "rgba(0, 255, 127, 0.1)" if is_up else "rgba(255, 51, 102, 0.1)"
         
+        # 2. 判斷 KS 趨勢狀態
+        trend_color = "#00FF7F" if data['is_above_ema'] else "#FF3366"
+        trend_text = "🟢 趨勢偏多" if data['is_above_ema'] else "🔴 趨勢偏空"
+        
+        # 3. 動能狀態與外框特效
+        if data['vol_ratio'] > 1.3:
+            status = "🔥 動能爆發"
+            glow = f"box-shadow: 0 0 20px {color}50, inset 0 0 10px {color}20;"
+            border = f"2px solid {color}"
+        elif data['vol_ratio'] < 0.7:
+            status = "❄️ 量能枯竭"
+            glow = "box-shadow: none;"
+            border = "1px solid #222"
+        else:
+            status = "📊 隨波逐流"
+            glow = "box-shadow: 0 4px 10px rgba(0,0,0,0.5);"
+            border = "1px solid #444"
+
         with cols[i % 4]:
             st.markdown(f"""
-            <div style='background-color: #1a1a1a; padding: 15px; border-radius: 8px; border-top: 4px solid {color}; border-left: 1px solid #333; border-right: 1px solid #333; border-bottom: 1px solid #333; margin-bottom: 15px;'>
-                <div style='display:flex; justify-content:space-between;'>
-                    <span style='font-size: 20px; font-weight: bold; color: #E0E0E0;'>{ticker}</span>
-                    <span style='font-size: 14px; color: #888;'>{status}</span>
+            <div style='background: linear-gradient(145deg, #1c1c1c 0%, #121212 100%); 
+                        border-radius: 12px; border: {border}; {glow}
+                        padding: 20px; margin-bottom: 20px; transition: all 0.3s ease;'>
+                
+                <!-- 標頭區塊 -->
+                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;'>
+                    <span style='font-size: 24px; font-weight: 900; color: #FFFFFF; letter-spacing: 1px;'>{ticker}</span>
+                    <span style='font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: {bg_color}; color: {color};'>
+                        {status}
+                    </span>
                 </div>
-                <div style='font-size: 24px; color: {color}; font-weight: bold; margin-top: 5px;'>
-                    ${data['price']:.2f} <span style='font-size: 12px;'>({data['pct']:+.2f}%)</span>
+                
+                <!-- 價格與漲跌幅區塊 -->
+                <div style='font-size: 36px; color: {color}; font-weight: 900; font-family: "Courier New", monospace; letter-spacing: -2px; line-height: 1;'>
+                    ${data['price']:.2f}
                 </div>
-                <div style='font-size: 10px; color: #888; margin-top: 8px;'>主動買賣力道 (均量比: {data['vol_ratio']*100:.0f}%)</div>
-                <div style="width: 100%; background-color: #333; border-radius: 5px; height: 12px; display: flex; overflow: hidden; margin-top: 3px;">
-                    <div style="width: {data['buy']:.0f}%; background-color: #2ecc71;"></div>
-                    <div style="width: {data['sell']:.0f}%; background-color: #e74c3c;"></div>
+                <div style='font-size: 15px; color: {color}; font-weight: bold; margin-top: 4px; margin-bottom: 15px;'>
+                    {'▲' if is_up else '▼'} {abs(data['pct']):.2f}%
+                </div>
+                
+                <!-- 🛡️ KS 趨勢引擎 (新增) -->
+                <div style='background: #222; padding: 8px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid {trend_color};'>
+                    <div style='font-size: 11px; color: #aaa;'>KS 趨勢防守線 (EMA {data['ema_length']})</div>
+                    <div style='display:flex; justify-content:space-between; align-items:center; margin-top: 3px;'>
+                        <span style='font-size: 14px; font-weight: bold; color: {trend_color};'>${data['ema']:.2f}</span>
+                        <span style='font-size: 11px; color: {trend_color};'>{trend_text}</span>
+                    </div>
+                </div>
+                
+                <!-- 買賣力道與均量比 -->
+                <div style='display:flex; justify-content:space-between; font-size: 11px; color: #aaa; margin-bottom: 6px; font-weight: bold;'>
+                    <span>買盤 {data['buy']:.0f}%</span>
+                    <span style='color:#777; background: #222; padding: 2px 6px; border-radius: 10px;'>均量比: {data['vol_ratio']*100:.0f}%</span>
+                    <span>賣盤 {data['sell']:.0f}%</span>
+                </div>
+                
+                <!-- 漸層力道儀表板 -->
+                <div style="width: 100%; background-color: #222; border-radius: 6px; height: 14px; display: flex; overflow: hidden; border: 1px solid #333;">
+                    <div style="width: {data['buy']}%; background: linear-gradient(90deg, #006400 0%, #00FF7F 100%);"></div>
+                    <div style="width: 2px; background-color: #000;"></div>
+                    <div style="width: {data['sell']}%; background: linear-gradient(90deg, #FF3366 0%, #8B0000 100%);"></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
     else:
         with cols[i % 4]:
-            st.error(f"{ticker} 讀取失敗")
+            st.error(f"⚠️ {ticker} 數據無法讀取 (可能無交易或數據不足)")
 
 # ==========================================
 # 自動刷新引擎
 # ==========================================
 if auto_refresh:
-    time.sleep(60) # 暫停 60 秒
-    st.rerun()     # 重新執行整個腳本，達到畫面刷新效果
+    time.sleep(60)
+    st.rerun()
