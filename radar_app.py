@@ -17,25 +17,22 @@ def fetch_radar_data(ticker, mode):
     try:
         stock = yf.Ticker(ticker)
         
-        # 🛡️ 根據作戰模式，動態調整抓取級別與 KS 趨勢參數
+        # 🛡️ 根據作戰模式動態調整
         if mode == "🌊 波段模式 (持股 1~2 週)":
-            period_str = "3mo"     # 抓過去 3 個月
-            interval_str = "1d"    # 日K線
-            ema_length = 20        # 波段防守線：20日 EMA
+            hist = stock.history(period="3mo", interval="1d")
+            ema_length = 20
         else:
-            period_str = "5d"      # 抓過去 5 天
-            interval_str = "5m"    # 5分鐘K線
-            ema_length = 200       # 當沖防守線：200期 EMA (5分K的200EMA)
+            hist = stock.history(period="5d", interval="5m")
+            ema_length = 200
 
-        hist = stock.history(period=period_str, interval=interval_str)
-        if hist.empty or len(hist) < ema_length: 
+        if hist.empty: 
             return None
         
-        # 🧠 計算 KS 趨勢引擎的核心：EMA 防守線
+        # 🧠 計算 EMA (移除嚴格的長度限制，讓 yfinance 更有彈性)
         hist['EMA'] = hist['Close'].ewm(span=ema_length, adjust=False).mean()
         
         current_price = hist['Close'].iloc[-1]
-        prev_close = hist['Close'].iloc[-2]
+        prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
         current_ema = hist['EMA'].iloc[-1]
         pct_change = ((current_price - prev_close) / prev_close) * 100
         
@@ -44,7 +41,7 @@ def fetch_radar_data(ticker, mode):
         avg_vol = hist['Volume'].mean()
         vol_ratio = current_vol / avg_vol if avg_vol > 0 else 0
         
-        # ⚡ 動能買賣力道演算法 (X光機核心)
+        # ⚡ 動能買賣力道演算法
         sensitivity = 8.5 
         buy_force = 50 + (pct_change * sensitivity)
         if vol_ratio > 1.3:
@@ -74,7 +71,6 @@ with col_input:
     watch_list_str = st.text_input("輸入監控清單 (逗號分隔)", value="APLD, SOUN, NVDA, TSLA, TQQQ")
     tickers = [t.strip().upper() for t in watch_list_str.split(",") if t.strip()]
 with col_mode:
-    # 🚀 雙引擎切換開關
     combat_mode = st.radio("選擇作戰模組：", 
                           ["🌊 波段模式 (持股 1~2 週)", "⚡ 極短線當沖 (日內 / ETF)"], 
                           horizontal=True)
@@ -94,16 +90,13 @@ cols = st.columns(4)
 for i, ticker in enumerate(tickers):
     data = fetch_radar_data(ticker, combat_mode)
     if data:
-        # 1. 判斷動能與顏色
         is_up = data['pct'] >= 0
         color = "#00FF7F" if is_up else "#FF3366" 
         bg_color = "rgba(0, 255, 127, 0.1)" if is_up else "rgba(255, 51, 102, 0.1)"
         
-        # 2. 判斷 KS 趨勢狀態
         trend_color = "#00FF7F" if data['is_above_ema'] else "#FF3366"
         trend_text = "🟢 趨勢偏多" if data['is_above_ema'] else "🔴 趨勢偏空"
         
-        # 3. 動能狀態與外框特效
         if data['vol_ratio'] > 1.3:
             status = "🔥 動能爆發"
             glow = f"box-shadow: 0 0 20px {color}50, inset 0 0 10px {color}20;"
@@ -118,50 +111,33 @@ for i, ticker in enumerate(tickers):
             border = "1px solid #444"
 
         with cols[i % 4]:
+            # 壓扁 HTML 縮排，防止被解析為程式碼區塊
             st.markdown(f"""
-            <div style='background: linear-gradient(145deg, #1c1c1c 0%, #121212 100%); 
-                        border-radius: 12px; border: {border}; {glow}
-                        padding: 20px; margin-bottom: 20px; transition: all 0.3s ease;'>
-                
-                <!-- 標頭區塊 -->
-                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;'>
-                    <span style='font-size: 24px; font-weight: 900; color: #FFFFFF; letter-spacing: 1px;'>{ticker}</span>
-                    <span style='font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: {bg_color}; color: {color};'>
-                        {status}
-                    </span>
-                </div>
-                
-                <!-- 價格與漲跌幅區塊 -->
-                <div style='font-size: 36px; color: {color}; font-weight: 900; font-family: "Courier New", monospace; letter-spacing: -2px; line-height: 1;'>
-                    ${data['price']:.2f}
-                </div>
-                <div style='font-size: 15px; color: {color}; font-weight: bold; margin-top: 4px; margin-bottom: 15px;'>
-                    {'▲' if is_up else '▼'} {abs(data['pct']):.2f}%
-                </div>
-                
-                <!-- 🛡️ KS 趨勢引擎 (新增) -->
-                <div style='background: #222; padding: 8px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid {trend_color};'>
-                    <div style='font-size: 11px; color: #aaa;'>KS 趨勢防守線 (EMA {data['ema_length']})</div>
-                    <div style='display:flex; justify-content:space-between; align-items:center; margin-top: 3px;'>
-                        <span style='font-size: 14px; font-weight: bold; color: {trend_color};'>${data['ema']:.2f}</span>
-                        <span style='font-size: 11px; color: {trend_color};'>{trend_text}</span>
-                    </div>
-                </div>
-                
-                <!-- 買賣力道與均量比 -->
-                <div style='display:flex; justify-content:space-between; font-size: 11px; color: #aaa; margin-bottom: 6px; font-weight: bold;'>
-                    <span>買盤 {data['buy']:.0f}%</span>
-                    <span style='color:#777; background: #222; padding: 2px 6px; border-radius: 10px;'>均量比: {data['vol_ratio']*100:.0f}%</span>
-                    <span>賣盤 {data['sell']:.0f}%</span>
-                </div>
-                
-                <!-- 漸層力道儀表板 -->
-                <div style="width: 100%; background-color: #222; border-radius: 6px; height: 14px; display: flex; overflow: hidden; border: 1px solid #333;">
-                    <div style="width: {data['buy']}%; background: linear-gradient(90deg, #006400 0%, #00FF7F 100%);"></div>
-                    <div style="width: 2px; background-color: #000;"></div>
-                    <div style="width: {data['sell']}%; background: linear-gradient(90deg, #FF3366 0%, #8B0000 100%);"></div>
-                </div>
-            </div>
+<div style='background: linear-gradient(145deg, #1c1c1c 0%, #121212 100%); border-radius: 12px; border: {border}; {glow} padding: 20px; margin-bottom: 20px; transition: all 0.3s ease;'>
+<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;'>
+<span style='font-size: 24px; font-weight: 900; color: #FFFFFF; letter-spacing: 1px;'>{ticker}</span>
+<span style='font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: {bg_color}; color: {color};'>{status}</span>
+</div>
+<div style='font-size: 36px; color: {color}; font-weight: 900; font-family: "Courier New", monospace; letter-spacing: -2px; line-height: 1;'>${data['price']:.2f}</div>
+<div style='font-size: 15px; color: {color}; font-weight: bold; margin-top: 4px; margin-bottom: 15px;'>{'▲' if is_up else '▼'} {abs(data['pct']):.2f}%</div>
+<div style='background: #222; padding: 8px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid {trend_color};'>
+<div style='font-size: 11px; color: #aaa;'>KS 趨勢防守線 (EMA {data['ema_length']})</div>
+<div style='display:flex; justify-content:space-between; align-items:center; margin-top: 3px;'>
+<span style='font-size: 14px; font-weight: bold; color: {trend_color};'>${data['ema']:.2f}</span>
+<span style='font-size: 11px; color: {trend_color};'>{trend_text}</span>
+</div>
+</div>
+<div style='display:flex; justify-content:space-between; font-size: 11px; color: #aaa; margin-bottom: 6px; font-weight: bold;'>
+<span>買盤 {data['buy']:.0f}%</span>
+<span style='color:#777; background: #222; padding: 2px 6px; border-radius: 10px;'>均量比: {data['vol_ratio']*100:.0f}%</span>
+<span>賣盤 {data['sell']:.0f}%</span>
+</div>
+<div style="width: 100%; background-color: #222; border-radius: 6px; height: 14px; display: flex; overflow: hidden; border: 1px solid #333;">
+<div style="width: {data['buy']}%; background: linear-gradient(90deg, #006400 0%, #00FF7F 100%);"></div>
+<div style="width: 2px; background-color: #000;"></div>
+<div style="width: {data['sell']}%; background: linear-gradient(90deg, #FF3366 0%, #8B0000 100%);"></div>
+</div>
+</div>
             """, unsafe_allow_html=True)
     else:
         with cols[i % 4]:
