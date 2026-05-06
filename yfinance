@@ -1,0 +1,72 @@
+import yfinance as yf
+import praw
+from datetime import datetime
+
+# ==========================================
+# 1. 抓取期權異常數據 (以 LUMN 為例)
+# ==========================================
+def get_options_data(ticker_symbol):
+    ticker = yf.Ticker(ticker_symbol)
+    # 獲取最近到期日的期權鏈
+    expirations = ticker.options
+    if not expirations:
+        return "無期權數據"
+    
+    chain = ticker.option_chain(expirations[0])
+    calls = chain.calls
+    puts = chain.puts
+    
+    # 簡單篩選出成交量異常的合約 (這裡假設大於 1000 口為異常)
+    unusual_calls = calls[calls['volume'] > 1000][['strike', 'volume', 'openInterest']]
+    unusual_puts = puts[puts['volume'] > 1000][['strike', 'volume', 'openInterest']]
+    
+    report = f"【期權異動數據 - 最近到期日: {expirations[0]}】\n"
+    report += f"異常 Call (成交量>1000): \n{unusual_calls.to_string()}\n"
+    report += f"異常 Put (成交量>1000): \n{unusual_puts.to_string()}\n"
+    return report
+
+# ==========================================
+# 2. 抓取散戶情緒 (需註冊 Reddit API 獲取憑證)
+# ==========================================
+def get_reddit_sentiment(ticker_symbol):
+    # 這裡填入你的 Reddit API 憑證
+    reddit = praw.Reddit(
+        client_id="YOUR_CLIENT_ID",
+        client_secret="YOUR_SECRET",
+        user_agent="LCCapital_Bot_v1"
+    )
+    
+    subreddit = reddit.subreddit("wallstreetbets")
+    # 搜尋包含該股票代碼的最新熱門貼文
+    posts = subreddit.search(f"${ticker_symbol}", sort="new", limit=5)
+    
+    report = "【Reddit WSB 最新相關貼文】\n"
+    for post in posts:
+        report += f"- 標題: {post.title} (推文數: {post.score}, 留言數: {post.num_comments})\n"
+    return report
+
+# ==========================================
+# 3. 組裝終極 Prompt 準備餵給 AI
+# ==========================================
+ticker = "LUMN"
+options_info = get_options_data(ticker)
+# reddit_info = get_reddit_sentiment(ticker) # 需配置 API 後啟用
+reddit_info = "【Reddit WSB 模擬數據】\n- 標題: LUMN is the next AI play! Squeeze it! (推文數: 1500)\n- 標題: Anyone buying LUMN calls here? (推文數: 200)"
+
+# 最終送給大語言模型的 Prompt
+ai_prompt = f"""
+你現在是 LC Capital 的首席情報官。
+請根據我本地系統剛剛抓取到的 {ticker} 最新量化與情緒數據，進行深度推演。
+
+原始數據如下：
+{options_info}
+{reddit_info}
+
+請輸出：
+1. 一句話定調
+2. 籌碼與情緒綜合分析
+3. 實戰劇本提示（是否觸發洗盤或軋空訊號？）
+"""
+
+print(ai_prompt)
+# 接下來只需將 ai_prompt 透過 API 發送給模型即可
